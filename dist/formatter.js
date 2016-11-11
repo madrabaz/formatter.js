@@ -154,6 +154,13 @@ var utils = function () {
     return typeof el.addEventListener !== 'undefined' ? el.addEventListener(evt, handler, false) : el.attachEvent('on' + evt, handler);
   };
   //
+  // Helper method for cross browser implementation for removing
+  // event listeners
+  //
+  utils.removeListener = function (el, evt, handler) {
+    return typeof el.removeEventListener !== 'undefined' ? el.removeEventListener(evt, handler, false) : el.detachEvent('on' + evt, handler);
+  };
+  //
   // Helper method for cross browser implementation of preventDefault
   //
   utils.preventDefault = function (evt) {
@@ -271,7 +278,7 @@ var utils = function () {
         'keyCode': 40
       },
       'F5': {
-        'which': 116,
+        'which': 0,
         'keyCode': 116
       }
     };
@@ -493,33 +500,42 @@ var formatter = function (patternMatcher, inptSel, utils) {
     // Init values
     self.hldrs = {};
     self.focus = 0;
+    // Store references to event handlers to be able to remove them
+    self._handlers = {
+      keyDown: self._keyDown.bind(self),
+      keyPress: self._keyPress.bind(self),
+      paste: self._paste.bind(self),
+      focus: self._focus.bind(self)
+    };
     // Add Listeners
-    utils.addListener(self.el, 'keydown', function (evt) {
-      self._keyDown(evt);
-    });
-    utils.addListener(self.el, 'keypress', function (evt) {
-      self._keyPress(evt);
-    });
-    utils.addListener(self.el, 'paste', function (evt) {
-      self._paste(evt);
-    });
+    utils.addListener(self.el, 'keydown', self._handlers.keyDown);
+    utils.addListener(self.el, 'keypress', self._handlers.keyPress);
+    utils.addListener(self.el, 'paste', self._handlers.paste);
     // Persistence
     if (self.opts.persistent) {
       // Format on start
       self._processKey('', false);
       self.el.blur();
       // Add Listeners
-      utils.addListener(self.el, 'focus', function (evt) {
-        self._focus(evt);
-      });
-      utils.addListener(self.el, 'click', function (evt) {
-        self._focus(evt);
-      });
-      utils.addListener(self.el, 'touchstart', function (evt) {
-        self._focus(evt);
-      });
+      utils.addListener(self.el, 'focus', self._handlers.focus);
+      utils.addListener(self.el, 'click', self._handlers.focus);
+      utils.addListener(self.el, 'touchstart', self._handlers.focus);
     }
   }
+  //
+  // @public
+  // Remove event handlers
+  //
+  Formatter.prototype.destroy = function () {
+    utils.removeListener(this.el, 'keydown', this._handlers.keyDown);
+    utils.removeListener(this.el, 'keypress', this._handlers.keyPress);
+    utils.removeListener(this.el, 'paste', this._handlers.paste);
+    if (this.opts.persistent) {
+      utils.removeListener(this.el, 'focus', this._handlers.focus);
+      utils.removeListener(this.el, 'click', this._handlers.focus);
+      utils.removeListener(this.el, 'touchstart', this._handlers.focus);
+    }
+  };
   //
   // @public
   // Add new char
@@ -643,8 +659,14 @@ var formatter = function (patternMatcher, inptSel, utils) {
     } else if (delKey && delKey === 46) {
       this._delete();
     } else if (delKey && this.sel.begin - 1 >= 0) {
+      // Increase the backspace distance for every
+      // placeholder character at the end of the selection
+      var backspaceDistance = 1;
+      while (!this.opts.persistent && this.chars[this.sel.end - backspaceDistance]) {
+        backspaceDistance++;
+      }
       // Always have a delta of at least -1 for the character being deleted.
-      this.val = utils.removeChars(this.val, this.sel.end - 1, this.sel.end);
+      this.val = utils.removeChars(this.val, this.sel.end - backspaceDistance, this.sel.end);
       this.delta -= 1;
     } else if (delKey) {
       return true;

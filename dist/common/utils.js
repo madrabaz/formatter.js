@@ -59,6 +59,16 @@ utils.addListener = function (el, evt, handler) {
 };
 
 //
+// Helper method for cross browser implementation for removing
+// event listeners
+//
+utils.removeListener = function (el, evt, handler) {
+  return (typeof el.removeEventListener !== 'undefined')
+    ? el.removeEventListener(evt, handler, false)
+    : el.detachEvent('on' + evt, handler);
+};
+
+//
 // Helper method for cross browser implementation of preventDefault
 //
 utils.preventDefault = function (evt) {
@@ -143,7 +153,7 @@ utils.isSpecialKeyPress = function (which, keyCode) {
     'uparrow': { 'which': 0, 'keyCode': 38 },
     'rightarrow': { 'which': 0, 'keyCode': 39 },
     'downarrow': { 'which': 0, 'keyCode': 40 },
-    'F5': { 'which': 116, 'keyCode': 116 }
+    'F5': { 'which': 0, 'keyCode': 116 }
   };
 
   return utils.getMatchingKey(which, keyCode, keys);
